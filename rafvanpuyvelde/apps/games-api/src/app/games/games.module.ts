@@ -16,8 +16,6 @@ import { AuthMiddleware } from './middleware/auth.middleware';
   providers: [GamesService],
 })
 export class GamesModule implements NestModule {
-  constructor(private gamesService: GamesService) {}
-
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(AuthMiddleware).forRoutes(GamesController);
   }

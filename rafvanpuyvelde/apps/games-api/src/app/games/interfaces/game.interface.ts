@@ -5,3 +5,8 @@ export interface GameAuthentication {
   token_type?: string;
   client_id?: string;
 }
+
+export interface GamePlatform {
+  id: number;
+  name: string;
+}

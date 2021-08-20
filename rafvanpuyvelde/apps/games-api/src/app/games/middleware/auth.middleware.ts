@@ -72,7 +72,7 @@ export class AuthMiddleware implements NestMiddleware {
     );
   }
 
-  async use(req: Request, _res: Response, next: NextFunction) {
+  async use(_req: Request, _res: Response, next: NextFunction) {
     const unavailableException = new HttpException(
       'Service Unavailable',
       HttpStatus.SERVICE_UNAVAILABLE
@@ -83,12 +83,12 @@ export class AuthMiddleware implements NestMiddleware {
       'game-auth'
     );
 
-    // Get a token if there aren't any
-    if (!gameAuth) {
-      console.log('Fetched token.');
-
+    // Get a token if there isn't one or if it's expired
+    if (!gameAuth || !this.tokenIsStillValid(gameAuth)) {
       try {
         const { data } = await this.getToken().toPromise();
+
+        console.log('[DEBUG] Fetched token');
 
         if (data) {
           const credentials = data as GameAuthentication;
@@ -100,17 +100,6 @@ export class AuthMiddleware implements NestMiddleware {
       } catch (error) {
         throw unavailableException;
       }
-    }
-
-    if (gameAuth?.access_token && this.tokenIsStillValid(gameAuth)) {
-      // Apply the token to the current request
-      req.headers = {
-        ...req.headers,
-        'Client-ID': this.CLIENT_ID,
-        Authorization: `Bearer ${gameAuth?.access_token}`,
-      };
-    } else {
-      throw unavailableException;
     }
 
     next();
