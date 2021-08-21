@@ -10,6 +10,7 @@ import {
 import { Cache } from 'cache-manager';
 import { Request, Response, NextFunction } from 'express';
 import { throwError } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { GameAuthentication } from '../interfaces/game.interface';
 
@@ -73,35 +74,30 @@ export class AuthMiddleware implements NestMiddleware {
   }
 
   async use(_req: Request, _res: Response, next: NextFunction) {
-    const unavailableException = new HttpException(
-      'Service Unavailable',
-      HttpStatus.SERVICE_UNAVAILABLE
-    );
-
     // Check if there is a valid cached token
-    let gameAuth: GameAuthentication | null = await this.cacheManager.get(
+    const gameAuth: GameAuthentication = await this.cacheManager.get(
       'game-auth'
     );
 
     // Get a token if there isn't one or if it's expired
     if (!gameAuth || !this.tokenIsStillValid(gameAuth)) {
-      try {
-        const { data } = await this.getToken().toPromise();
-
-        console.log('[DEBUG] Fetched token');
-
-        if (data) {
-          const credentials = data as GameAuthentication;
-          this.cacheCredentials(credentials);
-          gameAuth = { ...credentials, issued_at: Date.now() };
-        } else {
-          throw unavailableException;
-        }
-      } catch (error) {
-        throw unavailableException;
-      }
-    }
-
-    next();
+      this.getToken()
+        .pipe(map((res) => res.data as GameAuthentication))
+        .subscribe(
+          (credentials) => {
+            if (credentials) this.cacheCredentials(credentials);
+          },
+          () => {
+            throw new HttpException(
+              'Service Unavailable',
+              HttpStatus.SERVICE_UNAVAILABLE
+            );
+          },
+          () => {
+            console.log('[DEBUG] Fetched token');
+            next();
+          }
+        );
+    } else next();
   }
 }
