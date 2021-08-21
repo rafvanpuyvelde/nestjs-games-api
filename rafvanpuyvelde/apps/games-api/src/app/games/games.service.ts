@@ -10,10 +10,17 @@ import { Cache } from 'cache-manager';
 import { Observable, from } from 'rxjs';
 import { concatMap, map } from 'rxjs/operators';
 
-import { GameAuthentication, GamePlatform } from './interfaces/game.interface';
+import {
+  GameAuthentication,
+  Game,
+  IgdbRelease,
+  Platforms,
+  ReleaseConfig,
+} from './interfaces/game.interface';
 
 @Injectable()
 export class GamesService {
+  private API = 'https://api.igdb.com/v4';
   private CLIENT_ID = process.env['CLIENT_ID'];
 
   constructor(
@@ -21,7 +28,7 @@ export class GamesService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
-  private getTwitchRequestConfig() {
+  private getTwitchRequestHeaders() {
     const gameAuth$: Observable<GameAuthentication> = from(
       this.cacheManager.get('game-auth')
     );
@@ -40,16 +47,52 @@ export class GamesService {
     );
   }
 
-  getPlatforms(): Observable<GamePlatform[]> {
-    return this.getTwitchRequestConfig().pipe(
-      concatMap((config) =>
+  private getReleasePlatformsQuery(platforms: Platforms[]): string {
+    return platforms
+      .map((platform) => `game.platforms = ${platform}`)
+      .join(' & ');
+  }
+
+  private getReleaseQuery(config: ReleaseConfig) {
+    const {
+      platforms,
+      startDate,
+      endDate,
+      sortBy,
+      sortOrder,
+      limit = 5,
+    } = config;
+
+    const platformQuery = this.getReleasePlatformsQuery(platforms);
+    const dateQuery = `date >= ${startDate} & date <= ${endDate}`;
+
+    return `
+      fields id,game.name,game.cover.url,date;
+      where ${platformQuery} & ${dateQuery};
+      sort ${sortBy} ${sortOrder};
+      limit ${limit};
+    `;
+  }
+
+  getAll(query: ReleaseConfig): Observable<Game[]> {
+    return this.getTwitchRequestHeaders().pipe(
+      concatMap((headers) =>
         this.httpService
           .post(
-            'https://api.igdb.com/v4/platforms',
-            'fields abbreviation,name;sort name asc;limit 500;',
-            config
+            `${this.API}/release_dates`,
+            this.getReleaseQuery(query),
+            headers
           )
-          .pipe(map((res) => res.data as GamePlatform[]))
+          .pipe(
+            map((res) =>
+              (res.data as IgdbRelease[]).map((release) => ({
+                id: release.game.id,
+                name: release.game.name,
+                thumbnail: `https:${release.game.cover.url}`,
+                release: release.date,
+              }))
+            )
+          )
       )
     );
   }

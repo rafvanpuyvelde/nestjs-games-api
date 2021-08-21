@@ -2,19 +2,21 @@ import { Controller, Get } from '@nestjs/common';
 import { Observable } from 'rxjs';
 
 import { GamesService } from './games.service';
-import { GamePlatform } from './interfaces/game.interface';
+import { Game, Platforms } from './interfaces/game.interface';
 
 @Controller('games')
 export class GamesController {
   constructor(private gamesService: GamesService) {}
 
   @Get()
-  test(): string {
-    return 'This action returns all games';
-  }
-
-  @Get('platforms')
-  getPlatforms(): Observable<GamePlatform[]> {
-    return this.gamesService.getPlatforms();
+  getAll(): Observable<Game[]> {
+    return this.gamesService.getAll({
+      platforms: [Platforms.PC],
+      startDate: 1625090400,
+      endDate: 1627768800,
+      sortBy: 'date',
+      sortOrder: 'asc',
+      limit: 5,
+    });
   }
 }
