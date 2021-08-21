@@ -9,6 +9,7 @@ import {
 import { Cache } from 'cache-manager';
 import { Observable, from } from 'rxjs';
 import { concatMap, map } from 'rxjs/operators';
+import { sort } from '@rafvanpuyvelde/util';
 
 import {
   GameAuthentication,
@@ -54,27 +55,22 @@ export class GamesService {
   }
 
   private getReleaseQuery(config: ReleaseConfig) {
-    const {
-      platforms,
-      startDate,
-      endDate,
-      sortBy,
-      sortOrder,
-      limit = 5,
-    } = config;
+    const { platforms, startDate, endDate, limit = 5 } = config;
 
     const platformQuery = this.getReleasePlatformsQuery(platforms);
     const dateQuery = `date >= ${startDate} & date <= ${endDate}`;
 
     return `
-      fields id,game.name,game.cover.url,date;
-      where ${platformQuery} & ${dateQuery};
-      sort ${sortBy} ${sortOrder};
+      fields id,game.name,game.total_rating,game.cover.url,date;
+      where ${platformQuery} & ${dateQuery};µ
+      where game.total_rating != null;
       limit ${limit};
     `;
   }
 
   getAll(query: ReleaseConfig): Observable<Game[]> {
+    const { sortBy, sortOrder } = query;
+
     return this.getTwitchRequestHeaders().pipe(
       concatMap((headers) =>
         this.httpService
@@ -84,14 +80,24 @@ export class GamesService {
             headers
           )
           .pipe(
-            map((res) =>
-              (res.data as IgdbRelease[]).map((release) => ({
+            map((res) => {
+              const data = (res.data as IgdbRelease[]).map((release) => ({
                 id: release.game.id,
                 name: release.game.name,
                 thumbnail: `https:${release.game.cover.url}`,
                 release: release.date,
-              }))
-            )
+                rating: release.game.total_rating,
+              }));
+
+              sort(
+                data,
+                `${sortOrder === 'asc' ? '' : '-'}${
+                  sortBy === 'date' ? 'release' : 'name'
+                }`
+              );
+
+              return data;
+            })
           )
       )
     );

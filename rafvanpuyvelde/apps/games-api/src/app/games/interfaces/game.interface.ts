@@ -17,6 +17,7 @@ export interface IgdbGame {
   id: number;
   name: string;
   cover: IgdbCover;
+  total_rating: number;
 }
 
 export interface IgdbCover {
@@ -30,6 +31,7 @@ export interface Game {
   name: string;
   thumbnail: string;
   release: number;
+  rating: number;
 }
 
 export interface ReleaseConfig {
