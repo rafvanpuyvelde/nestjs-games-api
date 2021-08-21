@@ -7,6 +7,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
+import { Observable, from } from 'rxjs';
+import { concatMap, map } from 'rxjs/operators';
 
 import { GameAuthentication, GamePlatform } from './interfaces/game.interface';
 
@@ -19,31 +21,36 @@ export class GamesService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
-  private async getTwitchRequestConfig() {
-    const gameAuth: GameAuthentication | null = await this.cacheManager.get(
-      'game-auth'
+  private getTwitchRequestConfig() {
+    const gameAuth$: Observable<GameAuthentication> = from(
+      this.cacheManager.get('game-auth')
     );
 
-    if (!gameAuth)
-      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
-
-    return {
-      headers: {
-        'Client-ID': this.CLIENT_ID,
-        Authorization: `Bearer ${gameAuth?.access_token}`,
-      },
-    };
+    return gameAuth$.pipe(
+      map((auth) => {
+        if (auth?.access_token) {
+          return {
+            headers: {
+              'Client-ID': this.CLIENT_ID,
+              Authorization: `Bearer ${auth?.access_token}`,
+            },
+          };
+        } else throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+      })
+    );
   }
 
-  async getPlatforms(): Promise<GamePlatform[]> {
-    const platforms = await this.httpService
-      .post(
-        'https://api.igdb.com/v4/platforms',
-        'fields abbreviation,name;sort name asc;limit 500;',
-        await this.getTwitchRequestConfig()
+  getPlatforms(): Observable<GamePlatform[]> {
+    return this.getTwitchRequestConfig().pipe(
+      concatMap((config) =>
+        this.httpService
+          .post(
+            'https://api.igdb.com/v4/platforms',
+            'fields abbreviation,name;sort name asc;limit 500;',
+            config
+          )
+          .pipe(map((res) => res.data as GamePlatform[]))
       )
-      .toPromise();
-
-    return platforms.data;
+    );
   }
 }

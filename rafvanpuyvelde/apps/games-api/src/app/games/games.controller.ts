@@ -1,4 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
+import { Observable } from 'rxjs';
+
 import { GamesService } from './games.service';
 import { GamePlatform } from './interfaces/game.interface';
 
@@ -12,7 +14,7 @@ export class GamesController {
   }
 
   @Get('platforms')
-  async getPlatforms(): Promise<GamePlatform[]> {
-    return await this.gamesService.getPlatforms();
+  getPlatforms(): Observable<GamePlatform[]> {
+    return this.gamesService.getPlatforms();
   }
 }
