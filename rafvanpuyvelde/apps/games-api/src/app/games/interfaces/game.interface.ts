@@ -35,7 +35,7 @@ export interface Game {
 }
 
 export interface ReleaseConfig {
-  platforms: Platforms[];
+  platforms: number[];
   startDate: number;
   endDate: number;
   sortBy: 'name' | 'date';

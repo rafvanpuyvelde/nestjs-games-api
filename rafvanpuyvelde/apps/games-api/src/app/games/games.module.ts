@@ -11,7 +11,12 @@ import { GamesService } from './games.service';
 import { AuthMiddleware } from './middleware/auth.middleware';
 
 @Module({
-  imports: [HttpModule, CacheModule.register()],
+  imports: [
+    HttpModule,
+    CacheModule.register({
+      ttl: 60,
+    }),
+  ],
   controllers: [GamesController],
   providers: [GamesService],
 })
